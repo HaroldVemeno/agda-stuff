@@ -57,8 +57,7 @@ nat-strong-ind' P P0 Ind (suc n) (suc k) (s≤s Q) with <-cmp n k
 ... | tri< n<k n≢k  n≯k = contradiction (≤∧≢⇒< Q (≢-sym n≢k)) n≯k
 ... | tri≈ n≮k refl n≯k = Ind k (nat-strong-ind' P P0 Ind n)
 ... | tri> n≮k n≢k  n>k = Ind {!!} {!!}
--- = Ind _ (nat-strong-ind' {!P!} {!P0!} {!!} _)
---
+
 nat-strong-ind : (P : ℕ -> Set)
                  (Ind : (n : ℕ)
                         (Ip : (a : ℕ) -> (a < n) -> P a)
