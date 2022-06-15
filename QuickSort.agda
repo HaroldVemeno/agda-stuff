@@ -47,27 +47,48 @@ nnn = quicksort $ 1 +> 4 +> 5 +> 45 +> 1 +> 3 +> []
 open ≡-Reasoning
 
 nat-strong-ind' : (P : ℕ -> Set)
-                 (P0 : P 0)
                  (Ind : (n : ℕ)
-                        (Ip : (a : ℕ) -> (a ≤ n) -> P n)
-                        -> P (suc n))
-                 (n : ℕ) (k : ℕ) -> (k ≤ n) -> P k
-nat-strong-ind' P P0 Ind n .zero z≤n = P0
-nat-strong-ind' P P0 Ind (suc n) (suc k) (s≤s Q) with <-cmp n k
-... | tri< n<k n≢k  n≯k = contradiction (≤∧≢⇒< Q (≢-sym n≢k)) n≯k
-... | tri≈ n≮k refl n≯k = Ind k (nat-strong-ind' P P0 Ind n)
-... | tri> n≮k n≢k  n>k = Ind {!!} {!!}
+                        (Ip : (a : ℕ) -> (a < n) -> P a)
+                        -> P n)
+                 (n : ℕ) (k : ℕ) -> (k < n) -> P k
+nat-strong-ind' P Ind (suc n) k (s≤s k≤n)
+  = Ind k λ a a<k -> nat-strong-ind' P Ind n a (<-transˡ a<k k≤n )
 
 nat-strong-ind : (P : ℕ -> Set)
                  (Ind : (n : ℕ)
                         (Ip : (a : ℕ) -> (a < n) -> P a)
                         -> P n)
                  (n : ℕ) -> P n
-nat-strong-ind P Ind n = {!!}
+nat-strong-ind P Ind n = nat-strong-ind' P Ind (suc n) n ≤-refl
 
+list-strong-ind' : {ℓ : Level} (P : List -> Set ℓ)
+                 (Ind : (l : List)
+                        (Ip : (a : List) -> (length a < length l) -> P a)
+                        -> P l)
+                 (l : List) (k : List) -> (length k < length l) -> P k
+list-strong-ind' P Ind (x₁ +> l) k (s≤s k≤l)
+  = Ind k λ a a<k -> list-strong-ind' P Ind l a (<-transˡ a<k k≤l)
+
+list-strong-ind : {ℓ : Level} (P : List -> Set ℓ)
+                 (Ind : (l : List)
+                        (Ip : (a : List) -> (length a < length l) -> P a)
+                        -> P l)
+                 (l : List) -> P l
+list-strong-ind P Ind l = list-strong-ind' P Ind (6 +> l) l ≤-refl
+
+filter-smaller : (l : List) (f : ℕ -> Bool) -> length (filter f l) ≤ length l
+filter-smaller [] f = ≤-refl
+filter-smaller (x +> l) f with f x
+... | false = ≤pred⇒≤ (filter-smaller l f)
+... | true = s≤s (filter-smaller l f)
 
 quicksort-gas-add : (l : List) (n : ℕ) -> quicksort-gas (length l) l ≡ quicksort-gas (length l + n) l
-quicksort-gas-add l n = {!!}
+quicksort-gas-add l n =
+    list-strong-ind (λ l n -> quicksort-gas (length l) l ≡ quicksort-gas (length l + n) l) (
+      λ where
+        [] Ind → {!!}
+        (x +> l) Ind → {!!}
+    ) l n
 
 data Sorted : List -> Set where
   [] : Sorted []

@@ -58,6 +58,8 @@ Setoid.Carrier perm-setoid = List
 Setoid._≈_ perm-setoid = Permutation
 Setoid.isEquivalence perm-setoid = perm-equiv
 
+open import Relation.Binary.Reasoning.Setoid perm-setoid
+
 _+++_ : {a b c d : List} -> Permutation a b -> Permutation c d -> Permutation (a ++ c) (b ++ d)
 [] +++ cd = cd
 (n +> ab) +++ cd = n +> (ab +++ cd)
@@ -68,11 +70,15 @@ _+++_ : {a b c d : List} -> Permutation a b -> Permutation c d -> Permutation (a
 ++-perm-sym [] [] = []
 ++-perm-sym [] (y +> b) = y +> ++-perm-sym [] b
 ++-perm-sym (x +> a) [] = x +> ++-perm-sym a []
-++-perm-sym (x +> a) (y +> b) = x +> ++-perm-sym a (y +> b)
-                             || x ⇆ y > ++-perm-sym b a
-                             || y +> ++-perm-sym (x +> a) b
+-- ++-perm-sym (x +> a) (y +> b) = x +> ++-perm-sym a (y +> b)
+--                              || x ⇆ y > ++-perm-sym b a
+--                              || y +> ++-perm-sym (x +> a) b
+++-perm-sym (x +> a) (y +> b) = begin
+   x +> (a ++ y +> b) ≈⟨ x +> ++-perm-sym a (y +> b) ⟩
+   x +> y +> (b ++ a) ≈⟨ x ⇆ y > ++-perm-sym b a    ⟩
+   y +> x +> (a ++ b) ≈⟨ y +> ++-perm-sym (x +> a) b ⟩
+   y +> (b ++ x +> a) ∎
 
-open import Relation.Binary.Reasoning.Setoid perm-setoid
 
 fdsa : Permutation (4 +> 4 +> 7 +> 2 +> []) (7 +> 2 +> 4 +> 4 +> [])
 fdsa = begin
@@ -80,8 +86,6 @@ fdsa = begin
   4 +> 7 +> 4 +> 2 +> [] ≈⟨ 4 ⇆ 7 > 4 ⇆ 2  > [] ⟩
   7 +> 4 +> 2 +> 4 +> [] ≈⟨ 7 +> 4 ⇆ 2 > 4 +> [] ⟩
   7 +> 2 +> 4 +> 4 +> [] ∎
-
-
 
 insert : ℕ -> List -> List
 insert n [] = n +> []
@@ -94,14 +98,12 @@ insert-sorted n [] [] = [-]
 insert-sorted n (x +> []) [-] with n ≤? x
 ... | yes n≤x = n≤x +> [-]
 ... | no  n≰x =  (≰⇒≥ n≰x) +> [-]
-insert-sorted n (x +> (y +> l)) (x≤y +> Syl) with n ≤? x
+insert-sorted n (x +> y +> l) (x≤y +> Syl) with n ≤? x
 ... | yes n≤x = n≤x +> x≤y +> Syl
 ... | no  n≰x with Sinyl <- insert-sorted n (y +> l) Syl
                  | n ≤? y
 ...         | yes n≤y = (≰⇒≥ n≰x) +> Sinyl
 ...         | no  n≰y = x≤y +> Sinyl
-
-
 
 insert-perm : (n : ℕ) (l : List) -> Permutation (insert n l) (n +> l)
 insert-perm n [] = perm-refl _
@@ -218,3 +220,4 @@ perm-unrefl {a} {b} p with a ≟ₗ b
 
 perm-normalize : {a b : List} -> Permutation a b -> Permutation a b
 perm-normalize p = perm-reassoc (perm-flatten (perm-unrefl p))
+
