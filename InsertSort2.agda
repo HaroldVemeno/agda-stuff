@@ -38,6 +38,7 @@ data Permutation : List -> List -> Set where
 asdf : Permutation (4 +> 4 +> 7 +> 2 +> []) (7 +> 2 +> 4 +> 4 +> [])
 asdf = 4 +> 4 ⇆ 7 > 2 +> [] || 4 ⇆ 7 > 4 ⇆ 2 > [] || 7 +> 4 ⇆ 2 > 4 +> []
 
+
 perm-refl : (a : List) -> Permutation a a
 perm-refl [] = []
 perm-refl (x +> a) = x +> perm-refl a
@@ -221,3 +222,55 @@ perm-unrefl {a} {b} p with a ≟ₗ b
 perm-normalize : {a b : List} -> Permutation a b -> Permutation a b
 perm-normalize p = perm-reassoc (perm-flatten (perm-unrefl p))
 
+length : List -> ℕ
+length [] = 0
+length (x +> a) = 1 + length a
+
+perm-length : {a b : List} -> Permutation a b -> length a ≡ length b
+perm-length [] = refl
+perm-length (n +> x) = cong suc (perm-length x)
+perm-length (n ⇆ m > x) = cong (suc ∘ suc) (perm-length x)
+perm-length (x || y) = trans (perm-length x) (perm-length y)
+
+nperm-length : {a b : List} -> length a ≢ length b -> ¬ Permutation a b
+nperm-length nl p = contradiction (perm-length p) nl
+
+perm-len-contr : {a b : List} -> length a ≢ length b -> Permutation a b -> ⊥
+perm-len-contr x y = x (perm-length y)
+
+
+gnasd : {a b : ℕ} -> a ≢ b -> ¬ Permutation (a +> []) (b +> [])
+gnasd {a} {.a} a≢a (.a +> p) = a≢a refl
+gnasd a≢b (_||_ {b = []} x y) = perm-len-contr (λ()) y
+gnasd a≢b (_||_ {b = n +> m +> r} x y) = perm-len-contr (λ()) y
+gnasd {a} {b} a≢b (_||_ {b = n +> []} x y) with a ≟ n
+... | yes refl = gnasd a≢b y
+... | no a≢n = gnasd a≢n x 
+
+
+nasd : ¬ Permutation (4 +> []) (7 +> [])
+nasd p = gnasd (λ()) p
+
+count : ℕ -> List -> ℕ
+count n [] = 0
+count n (x +> l) with x ≟ n
+... | yes _ = suc (count n l)
+... | no _  = count n l
+
+CPermutation : List -> List -> Set _
+CPermutation a b = (n : ℕ) -> count n a ≡ count n b
+
+Perm->CPerm : {a b : List} -> Permutation a b -> CPermutation a b
+Perm->CPerm [] c = refl
+Perm->CPerm (n +> p) c with n ≟ c
+... | yes _ = cong suc (Perm->CPerm p c)
+... | no _  = Perm->CPerm p c
+Perm->CPerm (n ⇆ m > p) c with n ≟ c in nc | m ≟ c in mc
+... | yes _ | yes _ rewrite nc | mc = cong (suc ∘ suc) (Perm->CPerm p c)
+... | yes _ | no  _ rewrite nc | mc = cong suc (Perm->CPerm p c)
+... | no  _ | yes _ rewrite nc | mc = cong suc (Perm->CPerm p c)
+... | no  _ | no  _ rewrite nc | mc = Perm->CPerm p c
+Perm->CPerm (p || q) c = trans (Perm->CPerm p c) (Perm->CPerm q c)
+
+¬CPerm->¬Perm : {a b : List} -> ¬ CPermutation a b -> ¬ Permutation a b
+¬CPerm->¬Perm ¬CP P =  ¬CP (Perm->CPerm P)
