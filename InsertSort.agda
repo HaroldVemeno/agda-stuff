@@ -7,12 +7,14 @@ open import Relation.Nullary
 open import Relation.Binary.PropositionalEquality
 open import Function
 
+infixr 4 _||_
+infixr 5 _++_
+infixr 6 _+>_
+infixr 6 _⇆_>_
 
 data List : Set where
   [] : List
   _+>_ : ℕ -> List -> List
-
-infixr 20 _+>_
 
 _++_ : List -> List -> List
 [] ++ b = b

@@ -146,6 +146,11 @@ insertSort-perm l = begin
       [] ++ l ≡⟨⟩
       l ∎
 
+perm-with-sorted : (l : List) -> Σ List (λ s -> Sorted s × Permutation l s )
+proj₁ (perm-with-sorted l) = insertSort l
+proj₁ (proj₂ (perm-with-sorted l)) = insertSort-sorted l
+proj₂ (proj₂ (perm-with-sorted l)) = perm-sym (insertSort-perm l)
+
 list : List
 list = 5 +> 3 +> 2 +> 8 +> 9 +> 5 +> 10 +> 4 +> []
 
@@ -196,14 +201,14 @@ perm-reassoc : {a b : List} -> Permutation a b -> Permutation a b
 perm-reassoc p = perm-reassoc-to p (perm-refl _)
 
 _≟ₗ_ : DecidableEquality List
-[] ≟ₗ [] = true because ofʸ refl
-[] ≟ₗ (n +> l) = false because ofⁿ λ()
-(n +> l) ≟ₗ [] = false because ofⁿ λ()
+[] ≟ₗ [] = yes refl
+[] ≟ₗ (n +> l) = no λ()
+(n +> l) ≟ₗ [] = no λ()
 (x +> xs) ≟ₗ (y +> ys) with x ≟ y | xs ≟ₗ ys
-... | yes refl | yes refl  = true because ofʸ refl
-... | yes refl | no  xs≢ys = false because ofⁿ λ {refl -> xs≢ys refl}
-... | no x≢y   | yes refl  = false because ofⁿ λ {refl -> x≢y refl}
-... | no x≢y   | no  xs≢ys = false because ofⁿ λ {refl -> x≢y refl}
+... | yes refl | yes refl  = yes refl
+... | yes refl | no  xs≢ys = no λ {refl -> xs≢ys refl}
+... | no x≢y   | yes refl  = no λ {refl -> x≢y refl}
+... | no x≢y   | no  xs≢ys = no λ {refl -> x≢y refl}
 
 perm-unrefl : {a b : List} -> Permutation a b -> Permutation a b
 perm-unrefl {a} {b} (_||_ {b = c} p q) with a ≟ₗ c | c ≟ₗ b
@@ -274,3 +279,110 @@ Perm->CPerm (p || q) c = trans (Perm->CPerm p c) (Perm->CPerm q c)
 
 ¬CPerm->¬Perm : {a b : List} -> ¬ CPermutation a b -> ¬ Permutation a b
 ¬CPerm->¬Perm ¬CP P =  ¬CP (Perm->CPerm P)
+
+insert-perm-inv : {a b : List} {n : ℕ} -> Permutation a b -> Permutation (insert n a) (insert n b)
+insert-perm-inv {a} {b} {n} p = begin
+                insert n a ≈⟨ insert-perm n a ⟩
+                n +> a ≈⟨ n +> p ⟩
+                n +> b ≈˘⟨ insert-perm n b ⟩
+                insert n b ∎
+
+minl : ℕ -> List -> ℕ
+minl n [] = n
+minl n (x +> l) with n ≤? x
+... | yes _ = minl n l
+... | no  _ = minl x l
+
+sorted-tail : {n : ℕ} {l : List} -> Sorted (n +> l) -> Sorted l
+sorted-tail [-] = []
+sorted-tail (x +> s) = s
+
+sorted-drop : {n m : ℕ} {l : List} -> Sorted (n +> m +> l) -> Sorted (n +> l)
+sorted-drop (x +> [-]) = [-]
+sorted-drop (n≤m +> m≤h +> s) = (≤-trans n≤m m≤h) +> s
+
+
+minl-sorted-head : {n : ℕ} {l : List}  -> Sorted (n +> l) -> n ≡ minl n l
+minl-sorted-head {n} [-] = refl
+minl-sorted-head {n} {m +> l} (n≤m +> s) with n ≤? m
+... | yes _ = minl-sorted-head (sorted-drop (n≤m +> s))
+... | no  n≰m = contradiction n≤m n≰m
+
+infix 4 _∈_
+infix 4 _∈?_
+
+data _∈_ : ℕ -> List -> Set where
+  first : {n : ℕ} {l : List} -> n ∈ n +> l
+  skip : {n m : ℕ} {l : List} -> n ∈ l -> n ∈ (m +> l)
+
+_∈?_ : Decidable _∈_
+x ∈? [] = no λ()
+x ∈? y +> l with x ≟ y
+... | yes refl = yes first
+... | no  x≢y with x ∈? l
+...     | yes x∈l = yes (skip x∈l)
+...     | no x∉l  = no λ where
+                first -> x≢y refl
+                (skip x∈l) → x∉l x∈l
+
+in-perm : ∀ {n a b} -> Permutation a b -> n ∈ a -> n ∈ b
+in-perm (n +> pab) first = first
+in-perm (m +> pab) (skip n∈a) = skip (in-perm pab n∈a)
+in-perm (n₁ ⇆ m > pab) first = skip first
+in-perm (n₁ ⇆ m > pab) (skip first) = first
+in-perm (n₁ ⇆ m > pab) (skip (skip n∈a)) = skip (skip (in-perm pab n∈a))
+in-perm (pax || pxc) n∈a = in-perm pxc (in-perm pax n∈a)
+
+minl-inl : ∀ n l -> minl n l ∈ n +> l
+minl-inl n [] = first
+minl-inl n (x +> l) with n ≤? x
+... | yes n≤x = {!!}
+... | no  n≰x = skip (minl-inl x l)
+
+minl-permutation-eq-sorted : (n : ℕ) (a b : List) -> Permutation a b -> Sorted a -> Sorted b -> minl n a ≡ minl n b
+minl-permutation-eq-sorted n a b pab sa sb = {!!}
+
+minl-permutation-eq : (n : ℕ) (a b : List) -> Permutation a b -> minl n a ≡ minl n b
+minl-permutation-eq n a b pab with (a' , sa' , paa') <- perm-with-sorted a
+                                 | (b' , sb' , pbb') <- perm-with-sorted b
+                    = {!minl-permutation-eq-sorted n a' b' (sym paa' || pab || pbb') sa' sb'!}
+
+l++[]≡l : ∀ l -> l ++ [] ≡ l
+l++[]≡l [] = refl
+l++[]≡l (x +> l) = cong (x +>_) (l++[]≡l l)
+
+sorted-is-insertsorted' : ∀ k l -> Sorted (k ++ l) -> k ++ l ≡ insertList l k
+sorted-is-insertsorted' [] .[] [] = refl
+sorted-is-insertsorted' [] .(_ +> []) [-] = refl
+sorted-is-insertsorted' [] (n +> m +> l) s@(n≤m +> _) with m ≤? n
+... | yes m≤n with refl <- ≤-antisym n≤m m≤n = sorted-is-insertsorted' (n +> n +> []) l s
+... | no _ = sorted-is-insertsorted' (n +> m +> []) l s
+sorted-is-insertsorted' (x +> []) .[] [-] = refl
+sorted-is-insertsorted' (x +> []) (m +> l) s@(x≤m +> _) with m ≤? x
+... | yes m≤x with refl <- ≤-antisym x≤m m≤x = sorted-is-insertsorted' (x +> x +> []) l s
+... | no _ = sorted-is-insertsorted' (x +> m +> []) l s
+sorted-is-insertsorted' (x +> y +> k) [] (x≤y +> _) = cong (λ h -> x +> y +> h) (l++[]≡l k)
+sorted-is-insertsorted' (x +> y +> k) (n +> l) s@(x≤y +> _) with n ≤? x
+... | yes n≤x = {!!} -- n ≡ x ≡ y but have to do some digging
+... | no  _ with n ≤? y
+...     | yes a = {!!} -- digging
+...     | no  a = {!!} -- pain
+
+sorted-is-insertsorted : ∀ l -> Sorted l -> l ≡ insertSort l
+sorted-is-insertsorted [] [] = refl
+sorted-is-insertsorted (_ +> []) [-] = refl
+sorted-is-insertsorted (n +> m +> l) (x +> sl) with m ≤? n
+... | yes p with refl <- ≤-antisym x p = {!!}
+... | no pp = {!!}
+
+perm+sorted->equal : (a b : List) -> Permutation a b -> Sorted a -> Sorted b -> a ≡ b
+perm+sorted->equal .[] .[] [] sa sb = refl
+perm+sorted->equal .(n +> []) .(n +> []) (n +> p) [-] [-] = {!!}
+perm+sorted->equal .(n +> []) .(n +> _ +> _) (n +> p) [-] (x +> sb) = {!!}
+perm+sorted->equal .(n +> _ +> _) .(n +> []) (n +> p) (x +> sa) [-] = {!!}
+perm+sorted->equal .(n +> _ +> _) .(n +> _ +> _) (n +> p) (x +> sa) (x₁ +> sb) = {!!}
+perm+sorted->equal .(n +> m +> _) .(m +> n +> _) (n ⇆ m > p) sa sb = {!!}
+perm+sorted->equal a b (p || p₁) sa sb = {!!}
+
+insertSort-perm-inv : {a b : List} -> Permutation a b -> insertSort a ≡ insertSort b
+insertSort-perm-inv = {!!}
